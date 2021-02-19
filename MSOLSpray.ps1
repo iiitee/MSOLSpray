@@ -261,14 +261,14 @@ function Invoke-MSOLSpray {
         If ($false -eq $DisableUniqueValues) {
             Write-Verbose "Ensure only unique vales are used."
             $Usernames = $Usernames | Sort-Object -Unique
-            $Passwords = $Passwords | Sort-Object -Unique
+            $Passwords = $Passwords | Sort-Object -Unique -CaseSensitive
         }
 		
 		$PasswordProgressBarStartTime = Get-Date; $PasswordProgressBar = 0
 		:PasswordLoop ForEach ($Password in $Passwords) {
 			$PasswordProgressBar = Write-MyProgressBar -StartTime $PasswordProgressBarStartTime -ObjectToCalculate $Passwords -Count $PasswordProgressBar -Activity "Testing Passwords" -NestedDepth 1 -TaskPrefixText "Password" -Task "Spraying password $($Password)" -AddPauses
 			
-			If ($Delay -gt 0 -And $Password -ne $Passwords[0]) {
+			If ($Delay -gt 0 -And $Password -cne $Passwords[0]) {
 				$SleepProgressBar = 0
 				1..$Delay | ForEach-Object {
 					$SleepProgressBar = Write-MyProgressBar -Activity "$($Delay - $_) seconds remaining..." -NestedDepth 2 -id 2 -parentid 1 -ManualTotalSteps $Delay -Count $_ -TaskPrefixText "Sleeping" -Task "Sleeping for $($Delay) seconds" -StepPercentage
